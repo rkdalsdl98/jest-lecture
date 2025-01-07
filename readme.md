@@ -1,0 +1,60 @@
+## 목표  
+>테스트 코드를 적어도 봤을 때 이해는 할 수 있고, 유닛 테스트는 아니여도 통합, E2E 테스트는 짤 수 있도록 하자.
+
+1. mocking된 함수, 객체는 테스트가 종료 될 때까지 추적 된다. 그러므로 이후에 테스트 로직에 영향이 가니 이를 유의해서 작성하도록 하자.
+2. jest.fn은 새로운 추적을 만드는 것이고, spyOn은 해당 객체에 추적을 심는 것이다. jest.fn에 경우에는 1번 사항이 적용되지 않는다.
+3. 비동기 함수 테스트 시, await를 사용하지 않고 expect.resolves, expect.rejects를 사용한다면 반드시 return을 붙여주자. 
+4. setTimeout, setInterval 같은 webAPI를 사용하는 함수들은 test 함수의 매개값 done을 받아와 호출해주어야 실제로 timer의 시간을 기다려 준다. 하지만 콜백 함수에 경우, 테스트 시 모두 async로 바꿔서 하는 것을 추천한다.
+5. spyOn으로 특정 객체의 함수에 추적을 심게 되었을 때, 1번과 같은 상황이 발생 하는 것을 방지 하기 위한 함수를 제공 해주는데 함수 이름과 동작 방식은 다음과 같다.  
+```
+const spyFn = jest.spyOn(obj, 'fn')
+
+// Time, With 초기화
+// toHaveBeenCalledTimes 같은 함수 호출 횟수 같은 메타 데이터만 초기화
+spyFn.mockClear()
+
+// mockClear + mockImplementation(() => {})
+// mockClear와 mockImplementation을 () => {}로 만듬
+// 원래 추적하던 함수의 원형으로 돌아가는게
+spyFn.mockReset() 
+
+// 해당 함수의 추적을 모두 초기화
+spyFn.mockRestore()
+```  
++ spy를 개별적으로 위 예시 처럼 하나씩 없앨 수 있지만 jest에서 이를 한 번에 모두 관리 할 수 있도록 다음과 같은 함수를 지원한다.  
+```
+// 존재하는 모든 spy를 clear
+// Time, With 초기화
+jest.clearAllMocks()
+
+// 존재하는 모든 spy를 reset
+// clearAllMocks + mockImplementation(() => {})
+// clearAllMocks mockImplementation을 () => {}로 만듬
+jest.resetAllMocks()
+
+// 존재하는 모든 spy를 restore
+// 존재하는 모든 추적을 초기화
+jest.restoreAllMocks()
+```   
+
+6. 5번과 같이 모든 테스트에 clear, reset, restore를 적재적소에 넣어주는 것도 좋지만 그만큼 중복이 많이 생긴다. 이를 방지 하기 위해 jest의 lifecycle에 관여할 수 있도록 기능을 제공하는데 함수 이름과 동작 방식은 다음과 같다.
+```
+// 맨 처음에 한 번
+beforeAll(() => {})
+// 매 번 실행 전에
+beforeEach(() => {})
+
+// 매 번 실행 후에
+afterEach(() => {})
+// 맨 마지막에 한 번
+afterAll(() => {})
+```  
+7. describe는 테스트를 묶는 단위 이다. beforeEach, afterEach, beforeAll, afterAll과 같은 사전, 사후의 실행 되는 함수들은 모든 작업 단위에서 나뉘기 때문에 이를 주의 하면서 작성 해야 함.  
+8. it과 test 함수는 동일한 동작을 한다.  
+9. setTimeout나 Promise 함수 같이 뒤에 콜백이 실행 되는 함수들은 실제 시간을 기다리기 너무 오래 걸리는 함수가 종종 있다. 이런 불편한 점을 해소하기 위해 jest에서는 직접 micro queue와 macro queue에 있는 stack들을 바로 call stack으로 올리게 해주는 함수들을 제공하고 있다. 자세한건 jest 공식 문서를 확인 하자.  
++ 이러한 함수들은 jest.useFakeTimers와 함께 사용되어야 한다. 아니면 오류 남  
+- https://jestjs.io/docs/timer-mocks  
+10. 0.1 + 0.2 = 0.300000000004와 같이 javascript에선 부동 소수점 관련한 문제가 있다. 이 때문에 정밀한 테스트가 힘들 수 있는 데, 이를 보안하기 위해 jest에선 expect.toBeCloseTo를 지원한다
+11. setTimeout나 Promise 함수를 테스트 할 때, .then(() => done()) 혹은 setTimeout(()=>{done()}, 1000) 처럼 로직 내부에서 expect를 호출하고 done을 호출하여 검증을 해야 할 때가 있을 수도 있다. 이 때 expect는 실행 되어도, 돼지 않아도 성공하기 때문에 expect.assertions 함수로 expect가 얼만큼 호출 되었는지 판별하자.  
+12. jest.fn, jest.spyOn과 같은 함수 추적 객체는 mock이라는 프로퍼티에서 해당 함수가 얼만큼 호출되었는지, 어떤 인수를 받았는지, 몇 번째로 호출 되었는지 등의 다양한 정보를 담고 있다. 테스트를 정밀하게 짜려면 mock 객체를 로그로 찍어 확인하고 잘 써먹자.  
+13. jest-extended는 jest 함수의 확장판으로 같은 동작을 축약하여 가독성을 높여주는 패키지 이다. 설정 방법은 공부->test->setup 폴더를 확인하자.
