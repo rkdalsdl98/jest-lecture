@@ -70,3 +70,61 @@ afterAll(() => {})
 2. 테스트를 작성하고 실패하는 경우를 먼저 테스트 해라.  
 3. redirect에 경우 매개값으로 라우트가 들어오기 때문에 기대값 또한 redirect되는 위치를 넣어주면 된다.
 // expect(res.redirect).toHaveBeenCalledWith(`/?error=${route}`)  
+
+## 경험  
+
++ NestJS에서 unit 테스트를 작성하던 중, 같은 방식으로 동작하고 작성 된 모듈임에도 모킹 시, 프로토타입 객체를 대상으로 해야하는 경우가 있었다.  
+테스트 모듈 작성 부 비교
+```
+NovelModule
+
+const module: TestingModule = await Test.createTestingModule({
+    imports: [NovelModule],
+    providers: [
+        NovelService,
+        {
+            provide: MailService,
+            useValue: {
+                sendAlertEmail: jest.fn(),
+                sendReminderEmail: jest.fn(),
+                sendEmail: jest.fn(),
+            }
+        },
+        NovelRepository,
+        RequesterRepository,
+    ],
+}).compile()
+```  
+```
+NovelStatusModule
+
+const module: TestingModule = await Test.createTestingModule({
+    imports: [NovelStatusModule],
+    providers: [
+        NovelStatusService,
+        NovelStatusRepository,
+        {
+            provide: MailService,
+            useValue: {
+                sendReminderMail: jest.fn(),
+            }
+        }
+    ],
+}).compile()
+```  
+심지어 둘 다 실제 구현부에서도 똑같이 DI하고 사용하지만 모킹 방식은 살짝 다르다.  
+```
+NovelModule
+
+const sendEmailSpy = jest
+.spyOn(Object.getPrototypeOf(mailService), "sendEmail")
+.mockImplementation(() => {})
+```  
+```
+NovelStatusModule
+
+const sendEmailSpy = jest
+.spyOn(mailService as any, "sendEmail")
+.mockImplementation(() => {})
+```  
+NovelStatusModule는 저 상태로도 mockImplementation로 모킹 된 로직이 실행 되지만 NovelModule는 Object.getPrototypeOf로 프로토타입 객체를 이용해 모킹하지 않을 경우 모킹 된 로직이 아니라 실제 구현부 로직이 실행된다. 이유는 정확히 모르겠지만 이럴 수 있다는 점을 인지하자.  
